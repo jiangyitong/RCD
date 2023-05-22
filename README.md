@@ -46,4 +46,7 @@ Result structure:
 
       imageName_res.png
 
+### Comments
+Our codebase is based on the [NAFNet](https://github.com/megvii-research/NAFNet)
+
 
