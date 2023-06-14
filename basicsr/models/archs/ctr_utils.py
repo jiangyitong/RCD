@@ -418,10 +418,6 @@ class RBDVDnet_DCR(nn.Module):
 
         codebook = (torch.arange(level).float().to(x.device) + 1)
 
-        # out = rb_decorrelatio(out)
-
-        # out = tri_decorrelation_b(out)
-
         out = self.bd(out)
 
         out = (out - out.mean([2, 3, 4], keepdims=True)) / (out.std([2, 3, 4], keepdims=True) + 1e-8) * (60 // level ) / 255
@@ -429,8 +425,6 @@ class RBDVDnet_DCR(nn.Module):
         out = out * codebook.view(1, -1, 1, 1, 1)
 
         noise = out
-
-        # cov_reg = (cov(noise) ** 2).sum() * H * W
 
         cov_reg = torch.zeros([]).to(x.device)
 
@@ -440,23 +434,14 @@ class RBDVDnet_DCR(nn.Module):
 
         mean_map = (pre_map_down.mean(1, keepdims=True) * 20).sigmoid() * level
 
-        # mean_map = noise_map * 255 / 10
-
         linear_x = 1 / ((codebook.view(1, -1, 1, 1) - mean_map) ** 2 + 1e-8)
 
         pre_map = linear_x.softmax(1)
 
         pre_map_up = F.interpolate(pre_map, (H, W))
 
-        # if accu_map is None:
-        #     accu_map = torch.ones_like(pre_map_up)
-        # curr_map = (pre_map_up) * accu_map
-        # curr_map = curr_map / (curr_map.sum(1, keepdims=True) + 1e-5)
-
         map = pre_map_up.mean([2, 3]) * (accu_map * 1).mean([2, 3])
-        # map  = curr_map.mean([2, 3]) * (accu_map * 1).mean([2, 3])
         map = map / (map.sum(1, keepdims=True) + 1e-5)
-        # map = map.sqrt()
         x_mean = img.view(N, 1, C, H, W) - noise.view(N, level, C, H, W)
         noise_fuse = noise.view(N, level, C, H, W) * map.view(-1, level, 1, 1, 1)
         noise_fuse = noise_fuse.sum(1)
@@ -520,11 +505,6 @@ class RBDVDnet_DCR_All(nn.Module):
         out = out.view(N, 12, C, H, W)
 
         codebook = (torch.arange(12).float().to(x.device) + 1)
-
-        # out = rb_decorrelatio(out)
-
-        # out = tri_decorrelation_b(out)
-
         out = self.bd(out)
 
         out = (out - out.mean([2, 3, 4], keepdims=True)) / (out.std([2, 3, 4], keepdims=True) + 1e-8) * 5 / 255
@@ -533,7 +513,6 @@ class RBDVDnet_DCR_All(nn.Module):
 
         noise = out
 
-        # cov_reg = (cov(noise) ** 2).sum() * H * W
 
         cov_reg = torch.zeros([]).to(x.device)
 
@@ -543,8 +522,6 @@ class RBDVDnet_DCR_All(nn.Module):
 
         mean_map = (pre_map_down.mean(1, keepdims=True) * 20).sigmoid() * 12
 
-        # mean_map = noise_map * 255 / 10
-
         linear_x = 1 / (((codebook.view(1, -1, 1, 1) - mean_map).abs() + 1e-8) ** 0.5 + 1e-8)
 
         pre_map = linear_x.softmax(1)
@@ -553,24 +530,10 @@ class RBDVDnet_DCR_All(nn.Module):
 
         curr_map = (pre_map_up) * accu_map
         curr_map_out = curr_map / (curr_map.sum(1, keepdims=True) + 1e-5)
-
-        # map = pre_map_up.mean([2, 3]) * (accu_map * 1).mean([2, 3])
-
-        # map  = curr_map.mean([2, 3]) * (accu_map * 1).mean([2, 3])
-
-        # map = map / (map.sum(1, keepdims=True) + 1e-5)
-
-        # map = map.sqrt()
-
         map = curr_map_out
 
         x_mean = img.view(N, 1, C, H, W) - noise.view(N, 12, C, H, W)
         noise_fuse = noise.view(N, 12, C, H, W) * map.view(-1, 12, 1, H, W)
-
-        # noise_corr = ( img.view(N, 1, C, H, W) - noise_fuse).sum(2)
-        # curr_map = (curr_map) * noise_corr
-        # curr_map = curr_map / (curr_map.sum(1, keepdims=True) + 1e-5)
-
         noise_fuse = noise_fuse.sum(1)
         x = img - noise_fuse
 
@@ -633,9 +596,6 @@ class RBDVDnet_DCR_2x(nn.Module):
 
         codebook = (torch.arange(12).float().to(x.device) + 1)
 
-        # out = rb_decorrelatio(out)
-
-        # out = tri_decorrelation_b(out)
 
         out = self.bd(out)
 
@@ -645,7 +605,6 @@ class RBDVDnet_DCR_2x(nn.Module):
 
         noise = out
 
-        # cov_reg = (cov(noise) ** 2).sum() * H * W
 
         cov_reg = torch.zeros([]).to(x.device)
 
@@ -655,7 +614,6 @@ class RBDVDnet_DCR_2x(nn.Module):
 
         mean_map = (pre_map_down.mean(1, keepdims=True) * 20).sigmoid() * 12
 
-        # mean_map = noise_map * 255 / 10
 
         linear_x = 1 / ((codebook.view(1, -1, 1, 1) - mean_map) ** 2 + 1e-8)
 
@@ -668,11 +626,8 @@ class RBDVDnet_DCR_2x(nn.Module):
 
         map = pre_map_up.mean([2, 3]) * (accu_map * 1).mean([2, 3])
 
-        # map  = curr_map.mean([2, 3]) * (accu_map * 1).mean([2, 3])
 
         map = map / (map.sum(1, keepdims=True) + 1e-5)
-
-        # map = map.sqrt()
 
         x_mean = img.view(N, 1, C, H, W) - noise.view(N, 12, C, H, W)
         noise_fuse = noise.view(N, 12, C, H, W) * map.view(-1, 12, 1, 1, 1)
@@ -748,9 +703,6 @@ class RBDVDnet_Rec(nn.Module):
 
         codebook = (torch.arange(12).float().to(x.device) + 1)
 
-        # out = rb_decorrelatio(out)
-
-        # out = tri_decorrelation_b(out)
 
         out = self.bd(out)
 
@@ -760,7 +712,6 @@ class RBDVDnet_Rec(nn.Module):
 
         noise = out
 
-        # cov_reg = (cov(noise) ** 2).sum() * H * W
 
         cov_reg = torch.zeros([]).to(x.device)
 
@@ -771,7 +722,6 @@ class RBDVDnet_Rec(nn.Module):
 
         mean_map = (pre_map_down.mean(1, keepdims=True) * 20).sigmoid() * 12
 
-        # mean_map = noise_map * 255 / 10
 
         linear_x = 1 / (((codebook.view(1, -1, 1, 1) - mean_map).abs() + 1e-8) ** 0.5 + 1e-8)
 
@@ -783,26 +733,13 @@ class RBDVDnet_Rec(nn.Module):
 
         curr_map_out = curr_map / (curr_map.sum(1, keepdims=True) + 1e-5)
 
-        # map = pre_map_up.mean([2, 3]) * (accu_map * 1).mean([2, 3])
-
-        # map  = curr_map.mean([2, 3]) * (accu_map * 1).mean([2, 3])
-
-        # map = map / (map.sum(1, keepdims=True) + 1e-5)
-
-        # map = map.sqrt()
-
         map = curr_map_out
 
         x_mean = img.view(N, 1, C, H, W) - noise.view(N, 12, C, H, W)
         noise_fuse = noise.view(N, 12, C, H, W) * map.view(-1, 12, 1, H, W)
 
-        # noise_corr = ( img.view(N, 1, C, H, W) - noise_fuse).sum(2)
-        # curr_map = (curr_map) * noise_corr
-        # curr_map = curr_map / (curr_map.sum(1, keepdims=True) + 1e-5)
-
         noise_fuse = noise_fuse.sum(1)
         x = img - noise_fuse
-        # self.buf = noise_fuse.detach()
 
         return x, curr_map_out.clamp(min=-1e3, max=1e3), x_mean
 
@@ -925,24 +862,11 @@ class RBDVDnet_PostFuse(nn.Module):
 
         map = curr_map_out.softmax(1)
 
-        # map = pre_map_up.mean([2, 3]) * (accu_map * 1).mean([2, 3])
-
-        # map  = curr_map.mean([2, 3]) * (accu_map * 1).mean([2, 3])
-
-        # map = map / (map.sum(1, keepdims=True) + 1e-5)
-
-        # map = map.sqrt()
-
         x_mean = img.view(N, 1, C, H, W) - noise.view(N, 12, C, H, W)
         noise_fuse = noise.view(N, 12, C, H, W) * map.view(-1, 12, 1, H, W)
 
-        # noise_corr = ( img.view(N, 1, C, H, W) - noise_fuse).sum(2)
-        # curr_map = (curr_map) * noise_corr
-        # curr_map = curr_map / (curr_map.sum(1, keepdims=True) + 1e-5)
-
         noise_fuse = noise_fuse.sum(1)
         x = img - noise_fuse
-        # self.buf = noise_fuse.detach()
 
         return x, curr_map_out.clamp(min=-1e3, max=1e3), x_mean
 
