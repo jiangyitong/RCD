@@ -143,73 +143,40 @@ class NAFNet_RCD(nn.Module):
             x = x + enc_skip
             x = decoder(x)
 
-        # print(x.shape)
         x = self.ending(x) # B 3*LEVEL H W
-        # print(x.shape)
         x = self.ending2(x) # B 3*LEVEL H W
-        # print(x.shape)
 
 
         out = x.view(B1, level, C1, H1, W1)
 
         codebook = (torch.arange(level).float().to(x.device))
-        # out = rb_decorrelatio(out)
 
-        # out = tri_decorrelation_b(out)
-        # from basicsr.models.archs.ctr_utils import cov_sum
-        # from basicsr.models.archs.ctr_utils import tri_decorrelation
-
-        # print(cov_sum(out))
-        # out = sel.tanh(out)*20 #
         conv_sum_before = ncov_sum(out)
         out = self.bd(out)
-        # out = tri_decorrelation(out)
-        # out = tri_decorrelation(out, T=level)
-        # from basicsr.models.archs.ctr_utils import cov_sum
-        # print(cov_sum(out))
         conv_sum_after = ncov_sum(out)
-        # print(conv_sum_before, conv_sum_after)
         out = (out - out.mean([2, 3, 4], keepdims=True)) / (out.std([2, 3, 4], keepdims=True) + 1e-8) * (12 // (level-1) ) / 255
-
-        # print(out.shape)
-        # print(out[0,0])
         out = out * codebook.view(1, -1, 1, 1, 1)
-        # print(out[0,0])
-
         noise = out
-
-        # cov_reg = (cov(noise) ** 2).sum() * H * W
-
-        # cov_reg = torch.zeros([]).to(x.device)
 
         pre_map = self.map(torch.cat([out.view(B1, -1, H1, W1)], dim=1))
 
         pre_map_down = nn.AdaptiveAvgPool2d((H1 // 8, W1 // 8))(pre_map)  ## ablation
 
-        # mean_map = (pre_map_down.mean(1, keepdims=True) * 20).sigmoid() * level
 
-        # mean_map = noise_map * 255 / 10
-
-        # linear_x = 1 / ((codebook.view(1, -1, 1, 1) - mean_map) ** 2 + 1e-8)
         pre_map_down = pre_map_down * 0.1 # 5, 10
         pre_map = pre_map_down.softmax(1)
 
         pre_map_up = F.interpolate(pre_map, (H1, W1))
 
 
-        # curr_map = pre_map_up / (pre_map_up.sum(1, keepdims=True) + 1e-5)
 
         map = pre_map_up.mean([2, 3])
-        # map  = curr_map.mean([2, 3]) * (accu_map * 1).mean([2, 3])
         map = map / (map.sum(1, keepdims=True) + 1e-5)
-        # map = map.sqrt()
         x_mean = inp.view(B1, 1, C1, H1, W1) + noise.view(B1, level, C1, H1, W1)
-        # print(noise[0,1])
         noise_fuse = noise.view(B1, level, C1, H1, W1) * map.view(-1, level, 1, 1, 1)
         noise_fuse = noise_fuse.sum(1)
         x = inp + noise_fuse
 
-        # x = x + inp
         return  conv_sum_before, conv_sum_after, x_mean[:, :, :, :H, :W], x[:, : , :H, :W]
 
     def check_image_size(self, x):
