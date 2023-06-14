@@ -1,4 +1,3 @@
-
 import math
 import torch
 from torch import nn as nn
@@ -7,6 +6,7 @@ from torch.nn import init as init
 from torch.nn.modules.batchnorm import _BatchNorm
 
 from basicsr.utils import get_root_logger
+
 
 # try:
 #     from basicsr.models.ops.dcn import (ModulatedDeformConvPack,
@@ -220,7 +220,7 @@ def pixel_unshuffle(x, scale):
         Tensor: the pixel unshuffled feature.
     """
     b, c, hh, hw = x.size()
-    out_channel = c * (scale**2)
+    out_channel = c * (scale ** 2)
     assert hh % scale == 0 and hw % scale == 0
     h = hh // scale
     w = hw // scale
@@ -283,6 +283,7 @@ class LayerNormFunction(torch.autograd.Function):
         return gx, (grad_output * y).sum(dim=3).sum(dim=2).sum(dim=0), grad_output.sum(dim=3).sum(dim=2).sum(
             dim=0), None
 
+
 class LayerNorm2d(nn.Module):
 
     def __init__(self, channels, eps=1e-6):
@@ -294,6 +295,7 @@ class LayerNorm2d(nn.Module):
     def forward(self, x):
         return LayerNormFunction.apply(x, self.weight, self.bias, self.eps)
 
+
 # handle multiple input
 class MySequential(nn.Sequential):
     def forward(self, *inputs):
@@ -304,7 +306,10 @@ class MySequential(nn.Sequential):
                 inputs = module(inputs)
         return inputs
 
+
 import time
+
+
 def measure_inference_speed(model, data, max_iter=200, log_interval=50):
     model.eval()
 

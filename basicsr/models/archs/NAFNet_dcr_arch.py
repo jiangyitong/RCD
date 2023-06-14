@@ -1,24 +1,28 @@
-
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from basicsr.models.archs.arch_util import LayerNorm2d
 from basicsr.models.archs.ctr_utils import cov_sum, ncov_sum
+
+
 class SimpleGate(nn.Module):
     def forward(self, x):
         x1, x2 = x.chunk(2, dim=1)
         return x1 * x2
 
+
 class NAFBlock(nn.Module):
     def __init__(self, c, DW_Expand=2, FFN_Expand=2, drop_out_rate=0.):
         super().__init__()
         dw_channel = c * DW_Expand
-        self.conv1 = nn.Conv2d(in_channels=c, out_channels=dw_channel, kernel_size=1, padding=0, stride=1, groups=1, bias=True)
-        self.conv2 = nn.Conv2d(in_channels=dw_channel, out_channels=dw_channel, kernel_size=3, padding=1, stride=1, groups=dw_channel,
+        self.conv1 = nn.Conv2d(in_channels=c, out_channels=dw_channel, kernel_size=1, padding=0, stride=1, groups=1,
                                bias=True)
-        self.conv3 = nn.Conv2d(in_channels=dw_channel // 2, out_channels=c, kernel_size=1, padding=0, stride=1, groups=1, bias=True)
-        
+        self.conv2 = nn.Conv2d(in_channels=dw_channel, out_channels=dw_channel, kernel_size=3, padding=1, stride=1,
+                               groups=dw_channel,
+                               bias=True)
+        self.conv3 = nn.Conv2d(in_channels=dw_channel // 2, out_channels=c, kernel_size=1, padding=0, stride=1,
+                               groups=1, bias=True)
+
         # Simplified Channel Attention
         self.sca = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
@@ -30,8 +34,10 @@ class NAFBlock(nn.Module):
         self.sg = SimpleGate()
 
         ffn_channel = FFN_Expand * c
-        self.conv4 = nn.Conv2d(in_channels=c, out_channels=ffn_channel, kernel_size=1, padding=0, stride=1, groups=1, bias=True)
-        self.conv5 = nn.Conv2d(in_channels=ffn_channel // 2, out_channels=c, kernel_size=1, padding=0, stride=1, groups=1, bias=True)
+        self.conv4 = nn.Conv2d(in_channels=c, out_channels=ffn_channel, kernel_size=1, padding=0, stride=1, groups=1,
+                               bias=True)
+        self.conv5 = nn.Conv2d(in_channels=ffn_channel // 2, out_channels=c, kernel_size=1, padding=0, stride=1,
+                               groups=1, bias=True)
 
         self.norm1 = LayerNorm2d(c)
         self.norm2 = LayerNorm2d(c)
@@ -65,23 +71,28 @@ class NAFBlock(nn.Module):
 
         return y + x * self.gamma
 
+
 from basicsr.models.archs.ctr_utils import BD
+
 
 class NAFNet_RCD(nn.Module):
 
     def __init__(self, img_channel=3, width=16, middle_blk_num=1, enc_blk_nums=[], dec_blk_nums=[], level=5):
         super().__init__()
 
-        self.intro = nn.Conv2d(in_channels=img_channel, out_channels=width, kernel_size=3, padding=1, stride=1, groups=1,
-                              bias=True)
-        self.ending = nn.Conv2d(in_channels=width, out_channels=width*level, kernel_size=3, padding=1, stride=1, groups=1,
-                              bias=True)
+        self.intro = nn.Conv2d(in_channels=img_channel, out_channels=width, kernel_size=3, padding=1, stride=1,
+                               groups=1,
+                               bias=True)
+        self.ending = nn.Conv2d(in_channels=width, out_channels=width * level, kernel_size=3, padding=1, stride=1,
+                                groups=1,
+                                bias=True)
 
-        self.ending2 = nn.Conv2d(in_channels=width * level, out_channels=img_channel*level, kernel_size=3, padding=1, stride=1,
-                              bias=True, groups=level)
+        self.ending2 = nn.Conv2d(in_channels=width * level, out_channels=img_channel * level, kernel_size=3, padding=1,
+                                 stride=1,
+                                 bias=True, groups=level)
         self.level = level
         self.bd = BD(G=level)
-        self.map = nn.Conv2d(3*level, level, kernel_size=3, stride=1, padding=1)
+        self.map = nn.Conv2d(3 * level, level, kernel_size=3, stride=1, padding=1)
         self.encoders = nn.ModuleList()
         self.decoders = nn.ModuleList()
         self.middle_blks = nn.ModuleList()
@@ -96,7 +107,7 @@ class NAFNet_RCD(nn.Module):
                 )
             )
             self.downs.append(
-                nn.Conv2d(chan, 2*chan, 2, 2)
+                nn.Conv2d(chan, 2 * chan, 2, 2)
             )
             chan = chan * 2
 
@@ -143,9 +154,8 @@ class NAFNet_RCD(nn.Module):
             x = x + enc_skip
             x = decoder(x)
 
-        x = self.ending(x) # B 3*LEVEL H W
-        x = self.ending2(x) # B 3*LEVEL H W
-
+        x = self.ending(x)  # B 3*LEVEL H W
+        x = self.ending2(x)  # B 3*LEVEL H W
 
         out = x.view(B1, level, C1, H1, W1)
 
@@ -154,7 +164,8 @@ class NAFNet_RCD(nn.Module):
         conv_sum_before = ncov_sum(out)
         out = self.bd(out)
         conv_sum_after = ncov_sum(out)
-        out = (out - out.mean([2, 3, 4], keepdims=True)) / (out.std([2, 3, 4], keepdims=True) + 1e-8) * (12 // (level-1) ) / 255
+        out = (out - out.mean([2, 3, 4], keepdims=True)) / (out.std([2, 3, 4], keepdims=True) + 1e-8) * (
+                    12 // (level - 1)) / 255
         out = out * codebook.view(1, -1, 1, 1, 1)
         noise = out
 
@@ -162,13 +173,10 @@ class NAFNet_RCD(nn.Module):
 
         pre_map_down = nn.AdaptiveAvgPool2d((H1 // 8, W1 // 8))(pre_map)  ## ablation
 
-
-        pre_map_down = pre_map_down * 0.1 # 5, 10
+        pre_map_down = pre_map_down * 0.1  # 5, 10
         pre_map = pre_map_down.softmax(1)
 
         pre_map_up = F.interpolate(pre_map, (H1, W1))
-
-
 
         map = pre_map_up.mean([2, 3])
         map = map / (map.sum(1, keepdims=True) + 1e-5)
@@ -177,7 +185,7 @@ class NAFNet_RCD(nn.Module):
         noise_fuse = noise_fuse.sum(1)
         x = inp + noise_fuse
 
-        return  conv_sum_before, conv_sum_after, x_mean[:, :, :, :H, :W], x[:, : , :H, :W]
+        return conv_sum_before, conv_sum_after, x_mean[:, :, :, :H, :W], x[:, :, :H, :W]
 
     def check_image_size(self, x):
         _, _, h, w = x.size()
@@ -190,16 +198,15 @@ class NAFNet_RCD(nn.Module):
 if __name__ == '__main__':
     img_channel = 3
     width = 16
-    enc_blks = [1,2]
+    enc_blks = [1, 2]
     middle_blk_num = 2
     dec_blks = [1, 2]
 
     net = NAFNet_RCD(img_channel=img_channel, width=width, middle_blk_num=middle_blk_num,
-                      enc_blk_nums=enc_blks, dec_blk_nums=dec_blks)
+                     enc_blk_nums=enc_blks, dec_blk_nums=dec_blks)
 
     inp_shape = (3, 128, 128)
 
     inp = torch.randn(1, 3, 128, 128)
 
     out = net(inp)
-
