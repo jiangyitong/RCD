@@ -1,9 +1,7 @@
 
 ## Real-time Controllable Denoising for Image and Video
 
-The temporary official pytorch implementation of the paper **[Real-time Controllable Denoising for Image and Video]**
-
-Final version will be released soon
+The official pytorch implementation of the paper **[Real-time Controllable Denoising for Image and Video]**
 
 
 ### Installation
@@ -48,5 +46,6 @@ Result structure:
 
 ### Comments
 Our codebase is based on the [NAFNet](https://github.com/megvii-research/NAFNet)
+
 
 
