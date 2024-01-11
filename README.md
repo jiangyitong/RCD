@@ -15,7 +15,7 @@ The official pytorch implementation of the paper **[Real-time Controllable Denoi
 
 
 ## Installation
-This implementation based on [BasicSR] 
+This implementation is based on [BasicSR] 
 
 Basic requirements:
 ```python
